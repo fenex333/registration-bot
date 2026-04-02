@@ -29,6 +29,7 @@ func main() {
 	}
 
 	go sheetsClient.StartPolling(b)
+	go b.Run()
 
 	log.Println("🎓 Graduation Bot is running...")
 
