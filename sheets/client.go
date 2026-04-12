@@ -114,7 +114,7 @@ func (c *Client) AddEntry(entry *Entry) error {
 
 // StartPolling checks the sheet every minute for status changes
 func (c *Client) StartPolling(notifier Notifier) {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 
 	log.Println("📊 Sheet polling started (every 1 minute)...")
