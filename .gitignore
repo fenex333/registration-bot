@@ -1,2 +1,2 @@
 .env
-keys.json
+*.json
