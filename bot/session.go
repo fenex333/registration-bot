@@ -35,7 +35,13 @@ func NewSessionStore() *SessionStore {
 func (s *SessionStore) Get(chatID int64) *Session {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.sessions[chatID]
+
+	if s.sessions[chatID] == nil {
+		return nil
+	}
+
+	var session = *s.sessions[chatID]
+	return &session
 }
 
 func (s *SessionStore) Set(chatID int64, session *Session) {
