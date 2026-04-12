@@ -1,24 +1,41 @@
 package bot
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 type Step int
 
 const (
 	StepIdle Step = iota
+	StepUsername
+	StepPaymentUsername
 	StepName
 	StepUniversity
 	StepGradYear
+	StepReferral
 	StepCity
+	StepCompany
+	StepTalk
+	StepCompanions
 	StepDone
 )
 
+const sessionTTL = 24 * time.Hour
+
 type Session struct {
-	Step       Step
-	Name       string
-	University string
-	GradYear   string
-	City       string
+	Step         Step
+	Username     string
+	Name         string
+	University   string
+	GradYear     string
+	Referral     string
+	City         string
+	Company      string
+	Talk         string
+	Companions   string
+	LastActivity time.Time
 }
 
 type SessionStore struct {
@@ -33,20 +50,26 @@ func NewSessionStore() *SessionStore {
 }
 
 func (s *SessionStore) Get(chatID int64) *Session {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	if s.sessions[chatID] == nil {
+	session, ok := s.sessions[chatID]
+	if !ok {
+		return nil
+	}
+	if time.Since(session.LastActivity) > sessionTTL {
+		delete(s.sessions, chatID)
 		return nil
 	}
 
-	var session = *s.sessions[chatID]
-	return &session
+	copy := *session
+	return &copy
 }
 
 func (s *SessionStore) Set(chatID int64, session *Session) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	session.LastActivity = time.Now()
 	s.sessions[chatID] = session
 }
 
