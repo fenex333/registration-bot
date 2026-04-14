@@ -85,7 +85,7 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		welcome := "👋 Привет!\nЭто регистрация на <b>Физтехи.Кипр Реюнион'26</b>\n\n📅 <b>16–18 октября</b>\n📍 Лимассол, отель Mediterranean\n💶 <b>170 евро</b> (без проживания)\n\nТри дня лекций, общения и нетворкинга у моря\n\nВ стоимость входит кейтеринг, гала-ужин и кофе-брейки\n\nПодробнее на сайте и в <a href=\"https://t.me/phystechCyprusReunion\">Telegram-группе</a>\n\n<i>Организаторы оставляют за собой право отказать в регистрации или выступлении</i>\n\n⚠️ Пожалуйста, дождитесь подтверждения заявки — участие подтверждается только после ✅ от организаторов.\n\n—\n"
 		if username == "" {
 			b.sessions.Set(chatID, &Session{Step: StepUsername})
-			b.send(chatID, welcome+"У вас не установлен Telegram-ник. Пожалуйста, введите ваш <b>@username</b> вручную (или установите его в настройках Telegram):")
+			b.send(chatID, welcome+"У вас не установлен Telegram-ник. Пожалуйста, введите ваш <b>@username</b> вручную (или укажите номер своего телефона):")
 		} else {
 			b.sessions.Set(chatID, &Session{Step: StepName, Username: username})
 			b.send(chatID, welcome+"Для начала регистрации введите ваше <b>имя и фамилию</b>:")
