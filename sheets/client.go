@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"time"
 
 	"google.golang.org/api/option"
@@ -15,27 +16,39 @@ import (
 
 // Column indices (0-based)
 const (
-	ColChatID     = 0
-	ColName       = 1
-	ColUniversity = 2
-	ColGradYear   = 3
-	ColCity       = 4
-	ColSubmitTime = 5
-	ColStatus     = 6
-	ColNotified   = 7
+	ColChatID           = 0
+	ColUsername         = 1
+	ColName             = 2
+	ColUniversity       = 3
+	ColGradYear         = 4
+	ColReferral         = 5
+	ColCity             = 6
+	ColCompany          = 7
+	ColTalk             = 8
+	ColCompanions       = 9
+	ColSubmitTime       = 10
+	ColStatus           = 11
+	ColNotified         = 12
+	ColPaymentConfirmed = 13
 )
 
 // Notifier interface to avoid import cycle
 type Notifier interface {
 	SendMessage(chatID int64, text string)
+	SendApprovedMessage(chatID int64, name string)
 }
 
 type Entry struct {
 	ChatID     int64
+	Username   string
 	Name       string
 	University string
 	GradYear   string
+	Referral   string
 	City       string
+	Company    string
+	Talk       string
+	Companions string
 	SubmitTime string
 	Status     string
 }
@@ -62,7 +75,7 @@ func NewClient(cfg *config.Config) (*Client, error) {
 
 // EnsureHeaders writes the header row if the sheet is empty
 func (c *Client) EnsureHeaders() error {
-	readRange := fmt.Sprintf("%s!A1:H1", c.sheetName)
+	readRange := fmt.Sprintf("%s!A1:N1", c.sheetName)
 	resp, err := c.svc.Spreadsheets.Values.Get(c.spreadsheetID, readRange).Do()
 	if err != nil {
 		return fmt.Errorf("unable to read sheet: %w", err)
@@ -70,8 +83,9 @@ func (c *Client) EnsureHeaders() error {
 
 	if len(resp.Values) == 0 {
 		headers := []interface{}{
-			"Chat ID", "Имя", "Университет", "Год выпуска",
-			"Город", "Дата подачи", "Статус", "Уведомлен",
+			"Chat ID", "Telegram", "Имя Фамилия", "Университет", "Год выпуска",
+			"Пригласил", "Город и страна", "Компания", "Доклад", "Спутники",
+			"Дата подачи", "Статус", "Уведомлен", "Оплата подтверждена",
 		}
 		vr := &sheets.ValueRange{
 			Values: [][]interface{}{headers},
@@ -79,6 +93,7 @@ func (c *Client) EnsureHeaders() error {
 		_, err = c.svc.Spreadsheets.Values.
 			Append(c.spreadsheetID, fmt.Sprintf("%s!A1", c.sheetName), vr).
 			ValueInputOption("RAW").Do()
+
 		if err != nil {
 			return fmt.Errorf("unable to write headers: %w", err)
 		}
@@ -87,14 +102,35 @@ func (c *Client) EnsureHeaders() error {
 	return nil
 }
 
+// IsRegistered checks if a chatID has submitted a registration
+func (c *Client) IsRegistered(chatID int64) (bool, error) {
+	readRange := fmt.Sprintf("%s!A2:A", c.sheetName)
+	resp, err := c.svc.Spreadsheets.Values.Get(c.spreadsheetID, readRange).Do()
+	if err != nil {
+		return false, fmt.Errorf("unable to read sheet: %w", err)
+	}
+	chatIDStr := strconv.FormatInt(chatID, 10)
+	for _, row := range resp.Values {
+		if len(row) > 0 && fmt.Sprintf("%v", row[0]) == chatIDStr {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // AddEntry appends a new registration entry to the sheet
 func (c *Client) AddEntry(entry *Entry) error {
 	row := []interface{}{
 		strconv.FormatInt(entry.ChatID, 10),
+		entry.Username,
 		entry.Name,
 		entry.University,
 		entry.GradYear,
+		entry.Referral,
 		entry.City,
+		entry.Company,
+		entry.Talk,
+		entry.Companions,
 		entry.SubmitTime,
 		"pending",
 		"no",
@@ -103,7 +139,7 @@ func (c *Client) AddEntry(entry *Entry) error {
 		Values: [][]interface{}{row},
 	}
 	_, err := c.svc.Spreadsheets.Values.
-		Append(c.spreadsheetID, fmt.Sprintf("%s!A:H", c.sheetName), vr).
+		Append(c.spreadsheetID, fmt.Sprintf("%s!A:M", c.sheetName), vr).
 		ValueInputOption("RAW").Do()
 	if err != nil {
 		return fmt.Errorf("unable to append entry: %w", err)
@@ -128,7 +164,7 @@ func (c *Client) StartPolling(notifier Notifier) {
 }
 
 func (c *Client) checkAndNotify(notifier Notifier) {
-	readRange := fmt.Sprintf("%s!A2:H", c.sheetName)
+	readRange := fmt.Sprintf("%s!A2:M", c.sheetName)
 	resp, err := c.svc.Spreadsheets.Values.Get(c.spreadsheetID, readRange).Do()
 	if err != nil {
 		log.Printf("Polling error reading sheet: %v", err)
@@ -136,7 +172,7 @@ func (c *Client) checkAndNotify(notifier Notifier) {
 	}
 
 	for rowIdx, row := range resp.Values {
-		if len(row) < 8 {
+		if len(row) < 13 {
 			continue
 		}
 
@@ -160,32 +196,21 @@ func (c *Client) checkAndNotify(notifier Notifier) {
 
 		name := fmt.Sprintf("%v", row[ColName])
 
-		var message string
 		switch status {
 		case "approved":
-			message = fmt.Sprintf(
-				"🎉 <b>Поздравляем, %s!</b>\n\n"+
-					"Ваша заявка на участие в праздничном мероприятии выпускников <b>одобрена</b>! ✅\n\n"+
-					"Ждём вас на мероприятии! Подробности и программа будут отправлены ближе к дате события.\n\n"+
-					"До встречи! 🎓🥂",
-				name,
-			)
+			notifier.SendApprovedMessage(chatID, name)
 		case "rejected":
-			message = fmt.Sprintf(
-				"😔 <b>Уважаемый(ая) %s</b>,\n\n"+
-					"К сожалению, мы не можем принять вашу заявку на участие в мероприятии.\n\n"+
-					"Возможные причины: мероприятие предназначено для выпускников конкретного университета или набор участников уже завершён.\n\n"+
-					"Спасибо за интерес! Мы будем рады видеть вас на других наших событиях. 🙏",
+			notifier.SendMessage(chatID, fmt.Sprintf(
+				"😔 <b>%s</b>, к сожалению, мы не можем подтвердить вашу заявку на участие.\n\n"+
+					"Спасибо за интерес к мероприятию! Будем рады видеть вас на других наших событиях 🙏",
 				name,
-			)
+			))
 		}
-
-		notifier.SendMessage(chatID, message)
 		log.Printf("Notified chatID=%d status=%s", chatID, status)
 
 		// Mark as notified — sheet row is rowIdx+2 (1-indexed, skip header)
 		sheetRow := rowIdx + 2
-		notifiedRange := fmt.Sprintf("%s!H%d", c.sheetName, sheetRow)
+		notifiedRange := fmt.Sprintf("%s!M%d", c.sheetName, sheetRow)
 		vr := &sheets.ValueRange{
 			Values: [][]interface{}{{"yes"}},
 		}
@@ -196,4 +221,69 @@ func (c *Client) checkAndNotify(notifier Notifier) {
 			log.Printf("Failed to mark row %d as notified: %v", sheetRow, err)
 		}
 	}
+}
+
+func (c *Client) ConfirmPayment(username string) error {
+	username = strings.TrimPrefix(username, "@")
+
+	readRange := fmt.Sprintf("%s!A2:N", c.sheetName)
+	resp, err := c.svc.Spreadsheets.Values.Get(c.spreadsheetID, readRange).Do()
+	if err != nil {
+		return fmt.Errorf("unable to read sheet: %w", err)
+	}
+
+	for rowIdx, row := range resp.Values {
+		if len(row) < 2 {
+			continue
+		}
+		rowUsername := strings.TrimPrefix(fmt.Sprintf("%v", row[ColUsername]), "@")
+		if strings.EqualFold(rowUsername, username) {
+			sheetRow := rowIdx + 2
+			paymentRange := fmt.Sprintf("%s!N%d", c.sheetName, sheetRow)
+			vr := &sheets.ValueRange{
+				Values: [][]interface{}{{"yes"}},
+			}
+			_, err = c.svc.Spreadsheets.Values.
+				Update(c.spreadsheetID, paymentRange, vr).
+				ValueInputOption("RAW").Do()
+			if err != nil {
+				return fmt.Errorf("unable to update payment: %w", err)
+			}
+			log.Printf("Payment confirmed for username=%s", username)
+			return nil
+		}
+	}
+	return fmt.Errorf("user @%s not found in sheet", username)
+}
+
+func (c *Client) ConfirmPaymentByChatID(chatID int64) error {
+	chatIDStr := strconv.FormatInt(chatID, 10)
+
+	readRange := fmt.Sprintf("%s!A2:N", c.sheetName)
+	resp, err := c.svc.Spreadsheets.Values.Get(c.spreadsheetID, readRange).Do()
+	if err != nil {
+		return fmt.Errorf("unable to read sheet: %w", err)
+	}
+
+	for rowIdx, row := range resp.Values {
+		if len(row) < 1 {
+			continue
+		}
+		if fmt.Sprintf("%v", row[ColChatID]) == chatIDStr {
+			sheetRow := rowIdx + 2
+			paymentRange := fmt.Sprintf("%s!N%d", c.sheetName, sheetRow)
+			vr := &sheets.ValueRange{
+				Values: [][]interface{}{{"yes"}},
+			}
+			_, err = c.svc.Spreadsheets.Values.
+				Update(c.spreadsheetID, paymentRange, vr).
+				ValueInputOption("RAW").Do()
+			if err != nil {
+				return fmt.Errorf("unable to update payment: %w", err)
+			}
+			log.Printf("Payment confirmed for chatID=%d", chatID)
+			return nil
+		}
+	}
+	return fmt.Errorf("chatID %d not found in sheet", chatID)
 }
