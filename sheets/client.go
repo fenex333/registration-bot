@@ -183,7 +183,7 @@ func (c *Client) checkAndNotify(notifier Notifier) {
 		if notified == "yes" {
 			continue
 		}
-		if status != "approved" && status != "rejected" {
+		if status != "approved" && status != "approved+1" && status != "rejected" {
 			continue
 		}
 
@@ -199,6 +199,7 @@ func (c *Client) checkAndNotify(notifier Notifier) {
 		switch status {
 		case "approved":
 			notifier.SendApprovedMessage(chatID, name)
+		case "approved+1": // do nothing
 		case "rejected":
 			notifier.SendMessage(chatID, fmt.Sprintf(
 				"😔 <b>%s</b>, к сожалению, мы не можем подтвердить вашу заявку на участие.\n\n"+
