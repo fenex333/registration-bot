@@ -201,7 +201,8 @@ func (c *Client) checkAndNotify(notifier Notifier) {
 			notifier.SendApprovedMessage(chatID, name)
 		case "paid":
 			notifier.SendMessage(chatID,
-				"Ваша оплата была подтверждена. С нетерпением ждем вас на мероприятии!",
+				"Ваша оплата была подтверждена. С нетерпением ждем вас на мероприятии!\n\n"+
+				"Также рекомендуем ознакомиться с памяткой по ссылке https://docs.google.com/document/d/1huhE0gQB1Q2FD4N3TnXP5a_QUWJAF__Eonzkv26ewHk/edit?tab=t.0",
 			)
 		case "rejected":
 			notifier.SendMessage(chatID, fmt.Sprintf(
