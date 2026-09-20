@@ -398,10 +398,6 @@ func (b *Bot) handleCallback(cb *tgbotapi.CallbackQuery) {
 		paylink,
 	)
 
-	if flag == true {
-		b.send(chatID, text)
-	}
-
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = "HTML"
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
@@ -409,9 +405,11 @@ func (b *Bot) handleCallback(cb *tgbotapi.CallbackQuery) {
 			tgbotapi.NewInlineKeyboardButtonData("✅ Я оплатил", fmt.Sprintf("payment_confirm_chat:%d", chatID)),
 		),
 	)
-	
-	if _, err := b.api.Send(msg); err != nil {
-		log.Printf("Error sending approved message to %d: %v", chatID, err)
+
+	if flag == true {
+		if _, err := b.api.Send(msg); err != nil {
+			log.Printf("Error sending approved message to %d: %v", chatID, err)
+		}
 	}
 
 	b.api.Request(tgbotapi.NewEditMessageReplyMarkup(chatID, cb.Message.MessageID, tgbotapi.InlineKeyboardMarkup{}))
