@@ -329,21 +329,22 @@ func (b *Bot) sendPaymentConfirmation(chatID int64, username string) {
 func (b *Bot) SendApprovedMessage(chatID int64, name string) {
 	text := fmt.Sprintf(
 		"🎉 <b>Поздравляем, %s!</b>\n\n"+
-			"Ваша заявка одобрена ✅\n\n"+
-			"Вот <a href=\"https://checkout.revolut.com/pay/29204673-4211-4db4-9d91-546f0a3476cb\">ссылка</a> на оплату\n\n"+
-			"После оплаты нажмите кнопку ниже — мы проверим и отправим финальное приглашение.\n\n"+
-			"Если вы придете со спутниками, нужно оплатить за каждого из участников.\n\n"+
-			"⚠️ Без оплаты мы не сможем окончательно подтвердить участие.\n\n"+
-			"До встречи! 🎓🥂",
+		"Ваша заявка одобрена ✅\n\n"+
+		"Пожалуйста выберите варианты оплаты"+	
 		name,
 	)
+
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = "HTML"
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("✅ Я оплатил", fmt.Sprintf("payment_confirm_chat:%d", chatID)),
+			tgbotapi.NewInlineKeyboardButtonData("3 дня 170 евро",    "full"),
+			tgbotapi.NewInlineKeyboardButtonData("1-ый день 80 евро", "day1"),
+			tgbotapi.NewInlineKeyboardButtonData("2-ой день 80 евро", "day2"),
+			tgbotapi.NewInlineKeyboardButtonData("3-ий день 60 евро", "day3"),
 		),
 	)
+
 	if _, err := b.api.Send(msg); err != nil {
 		log.Printf("Error sending approved message to %d: %v", chatID, err)
 	}
@@ -352,6 +353,8 @@ func (b *Bot) SendApprovedMessage(chatID int64, name string) {
 func (b *Bot) handleCallback(cb *tgbotapi.CallbackQuery) {
 	b.api.Request(tgbotapi.NewCallback(cb.ID, ""))
 	chatID := cb.Message.Chat.ID
+	flag := false
+	paylink := ""
 
 	if strings.HasPrefix(cb.Data, "payment_confirm_chat:") {
 		targetChatIDStr := strings.TrimPrefix(cb.Data, "payment_confirm_chat:")
@@ -372,6 +375,43 @@ func (b *Bot) handleCallback(cb *tgbotapi.CallbackQuery) {
 		}
 	} else if cb.Data == "payment_cancel" {
 		b.send(chatID, "Окей. Когда оплатите — отправьте /pay.")
+	} else if cb.Data == "full" {
+		flag = true
+		paylink = "https://checkout.revolut.com/pay/29204673-4211-4db4-9d91-546f0a3476cb"
+	} else if cb.Data == "day1" {
+		flag = true
+		paylink = "https://checkout.revolut.com/pay/d957862f-9890-480c-9ff9-8209bfc681c8"
+	} else if cb.Data == "day2" {
+		flag = true
+		paylink = "https://checkout.revolut.com/pay/d957862f-9890-480c-9ff9-8209bfc681c8"
+	} else if cb.Data == "day3" {
+		flag = true
+		paylink = "https://checkout.revolut.com/pay/da1f6ff6-1c83-474f-865f-8666941ae167"
+	}
+	
+	text := fmt.Sprintf(
+		"Вот <a href=\"%s\">ссылка</a> на оплату\n\n"+
+		"После оплаты нажмите кнопку ниже — мы проверим и отправим финальное приглашение.\n\n"+
+		"Если вы придете со спутниками, нужно оплатить за каждого из участников.\n\n"+
+		"⚠️ Без оплаты мы не сможем окончательно подтвердить участие.\n\n"+
+		"До встречи! 🎓🥂",
+		paylink
+	)
+
+	if flag == true {
+		b.send(chatID, text)
+	}
+
+	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "HTML"
+	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("✅ Я оплатил", fmt.Sprintf("payment_confirm_chat:%d", chatID)),
+		),
+	)
+	
+	if _, err := b.api.Send(msg); err != nil {
+		log.Printf("Error sending approved message to %d: %v", chatID, err)
 	}
 
 	b.api.Request(tgbotapi.NewEditMessageReplyMarkup(chatID, cb.Message.MessageID, tgbotapi.InlineKeyboardMarkup{}))
