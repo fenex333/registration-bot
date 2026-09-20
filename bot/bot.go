@@ -395,7 +395,7 @@ func (b *Bot) handleCallback(cb *tgbotapi.CallbackQuery) {
 		"Если вы придете со спутниками, нужно оплатить за каждого из участников.\n\n"+
 		"⚠️ Без оплаты мы не сможем окончательно подтвердить участие.\n\n"+
 		"До встречи! 🎓🥂",
-		paylink
+		paylink,
 	)
 
 	if flag == true {
