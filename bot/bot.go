@@ -338,10 +338,9 @@ func (b *Bot) SendApprovedMessage(chatID int64, name string) {
 	msg.ParseMode = "HTML"
 	msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("3 дня 170 евро",    "full"),
-			tgbotapi.NewInlineKeyboardButtonData("1-ый день 80 евро", "day1"),
-			tgbotapi.NewInlineKeyboardButtonData("2-ой день 80 евро", "day2"),
-			tgbotapi.NewInlineKeyboardButtonData("3-ий день 60 евро", "day3"),
+			tgbotapi.NewInlineKeyboardButtonData("Вся конференция", "full"),
+			tgbotapi.NewInlineKeyboardButtonData("1 или 2 день",    "day1/2"),
+			tgbotapi.NewInlineKeyboardButtonData("3 день",          "day3"),
 		),
 	)
 
@@ -355,6 +354,7 @@ func (b *Bot) handleCallback(cb *tgbotapi.CallbackQuery) {
 	chatID := cb.Message.Chat.ID
 	flag := false
 	paylink := ""
+	price := ""
 
 	if strings.HasPrefix(cb.Data, "payment_confirm_chat:") {
 		targetChatIDStr := strings.TrimPrefix(cb.Data, "payment_confirm_chat:")
@@ -377,19 +377,21 @@ func (b *Bot) handleCallback(cb *tgbotapi.CallbackQuery) {
 		b.send(chatID, "Окей. Когда оплатите — отправьте /pay.")
 	} else if cb.Data == "full" {
 		flag = true
+		price = "170 евро"
 		paylink = "https://checkout.revolut.com/pay/29204673-4211-4db4-9d91-546f0a3476cb"
-	} else if cb.Data == "day1" {
+	} else if cb.Data == "day1/2" {
 		flag = true
-		paylink = "https://checkout.revolut.com/pay/d957862f-9890-480c-9ff9-8209bfc681c8"
-	} else if cb.Data == "day2" {
-		flag = true
+		price = "80 евро"
 		paylink = "https://checkout.revolut.com/pay/d957862f-9890-480c-9ff9-8209bfc681c8"
 	} else if cb.Data == "day3" {
 		flag = true
+		price = "60 евро"
 		paylink = "https://checkout.revolut.com/pay/da1f6ff6-1c83-474f-865f-8666941ae167"
 	}
 	
 	text := fmt.Sprintf(
+		price+
+		"\n\n"+
 		"Вот <a href=\"%s\">ссылка</a> на оплату\n\n"+
 		"После оплаты нажмите кнопку ниже — мы проверим и отправим финальное приглашение.\n\n"+
 		"Если вы придете со спутниками, нужно оплатить за каждого из участников.\n\n"+
